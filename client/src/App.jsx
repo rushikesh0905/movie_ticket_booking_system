@@ -15,7 +15,7 @@ import AddShows from './pages/admin/AddShows'
 import ListShows from './pages/admin/ListShows'
 import ListBookings from './pages/admin/ListBookings'
 import { useAppContext } from './context/AppContext'
-import { SignIn } from '@clerk/clerk-react'
+import { SignIn, useUser } from '@clerk/clerk-react'
 import Loading from './components/Loading'
 
 const App = () => {
@@ -24,9 +24,10 @@ const App = () => {
   const isAdminRoute = location.pathname.startsWith("/admin")
 
   const { user, isAdmin, loading } = useAppContext()
+  const { isLoaded } = useUser()
 
-  // ✅ Wait for admin check to complete
-  if (loading) {
+  // ✅ Wait for Clerk + admin check to complete
+  if (loading || !isLoaded) {
     return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-xl">Loading...</p>

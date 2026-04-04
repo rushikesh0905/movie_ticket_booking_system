@@ -67,6 +67,46 @@ export const getDashboardData = async (req, res) => {
     }
 };
 
+export const getBookingNotifications = async (req, res) => {
+    try {
+        const recentBookings = await Booking.find({ isPaid: true })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate({
+                path: 'show',
+                populate: { path: 'movie' }
+            })
+            .lean();
+
+        const notifications = await Promise.all(
+            recentBookings.map(async (booking) => {
+                let userName = 'Unknown User';
+
+                try {
+                    const clerkUser = await clerkClient.users.getUser(booking.user);
+                    userName = clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : clerkUser.emailAddresses[0]?.emailAddress || 'Unknown User';
+                } catch (err) {
+                    console.error("Notification user fetch error:", err.message);
+                }
+
+                return {
+                    id: booking._id.toString(),
+                    userName,
+                    showTitle: booking.show?.movie?.title || 'Unknown show',
+                    seats: booking.seats.join(', '),
+                    amount: booking.amount,
+                    createdAt: booking.createdAt,
+                };
+            })
+        );
+
+        res.json({ success: true, notifications });
+    } catch (error) {
+        console.error("getBookingNotifications error:", error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const getAllShows = async (req, res) => {
     try {
         const shows = await Show.find({

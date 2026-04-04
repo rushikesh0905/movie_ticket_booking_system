@@ -17,7 +17,7 @@ export const AppProvider = ({ children }) => {
 
     const image_base_url = import.meta.env.VITE_TMDB_IMAGE_BASE_URL;
 
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
     const navigate = useNavigate();
 
@@ -45,10 +45,13 @@ export const AppProvider = ({ children }) => {
 
             if (data.success) {
                 setIsAdmin(data.isAdmin);
+            } else {
+                setIsAdmin(false);
             }
 
         } catch (error) {
             console.error(error);
+            setIsAdmin(false);
         }
     };
 
@@ -92,16 +95,20 @@ export const AppProvider = ({ children }) => {
         const init = async () => {
             setLoading(true);
 
-            if (user) {
-                await fetchIsAdmin();
-                await fetchFavoriteMovies();
+            if (isLoaded) {
+                if (user) {
+                    await fetchIsAdmin();
+                    await fetchFavoriteMovies();
+                } else {
+                    setIsAdmin(false);
+                }
             }
 
             setLoading(false);
         };
 
         init();
-    }, [user]);
+    }, [user, isLoaded]);
 
     const value = {
         axios,

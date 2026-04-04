@@ -12,7 +12,7 @@ import userRouter from './routes/userRoutes.js';
 import { stripeWebhooks } from './controllers/stripeWebhooks.js';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port =  3000;
 
 await connectDB();
 
