@@ -119,7 +119,8 @@ const MovieDetails = () => {
 
             <button
               onClick={() => setOpenTrailer(true)}
-              className='flex items-center gap-2 px-7 py-3 text-sm bg-gray-800 hover:bg-gray-900 transition rounded-md font-medium cursor-pointer active:scale-95'
+              disabled={!show.movie.trailer}
+              className='flex items-center gap-2 px-7 py-3 text-sm bg-gray-800 hover:bg-gray-900 transition rounded-md font-medium cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <PlayCircleIcon className='w-5 h-5'/>
               Watch Trailer
@@ -206,6 +207,7 @@ const MovieDetails = () => {
               controls
               width="100%"
               height="400px"
+              onError={() => toast.error("Trailer not available for this movie")}
             />
 
           </div>

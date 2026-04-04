@@ -10,7 +10,7 @@ export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
 
-    const [isAdmin, setIsAdmin] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(null);
     const [shows, setShows] = useState([]);
     const [favoriteMovies, setFavoriteMovies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -106,10 +106,12 @@ export const AppProvider = ({ children }) => {
     const value = {
         axios,
         user,
+        getToken,
         navigate,
         isAdmin,
         shows,
         favoriteMovies,
+        fetchIsAdmin,
         fetchFavoriteMovies,
         loading,
         image_base_url

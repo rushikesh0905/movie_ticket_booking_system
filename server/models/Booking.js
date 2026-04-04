@@ -1,20 +1,29 @@
 import mongoose from "mongoose";
 
 const bookingSchema = new mongoose.Schema({
-    user: { type: String, required: true },
+  user: { type: String, required: true },
 
-    // ✅ FIX: must be ObjectId for populate
-    show: { type: mongoose.Schema.Types.ObjectId, ref: "Show", required: true },
+  show: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Show", 
+    required: true 
+  },
 
-    amount: { type: Number, required: true },
+  amount: { type: Number, required: true },
 
-    // ✅ FIX: match controller name
-    seats: { type: Array, required: true },
+  seats: { 
+    type: [String], // ✅ FIXED TYPE
+    required: true 
+  },
 
-    isPaid: { type: Boolean, default: false },
-    paymentLink: { type: String },
+  isPaid: { type: Boolean, default: false },
 
-}, { timestamps: true })
+  paymentLink: { type: String },
+
+  stripeSessionId: { type: String }
+
+}, { timestamps: true });
 
 const Booking = mongoose.model("Booking", bookingSchema);
+
 export default Booking;

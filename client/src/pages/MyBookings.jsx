@@ -4,27 +4,23 @@ import BlurCircle from '../components/BlurCircle'
 import timeFormat from '../lib/timeFormat'
 import { dateFormat } from '../lib/dateFormat'
 import { useAppContext } from '../context/AppContext'
-
-// ✅ IMPORT CLERK AUTH (FIX)
 import { useAuth } from "@clerk/clerk-react"
+import { Link, useLocation } from 'react-router-dom'
+import toast from 'react-hot-toast'
 
 const MyBookings = () => {
 
   const currency = import.meta.env.VITE_CURRENCY
-
-  // ✅ REMOVE getToken from context
   const { axios, user, image_base_url } = useAppContext()
-
-  // ✅ GET TOKEN FROM CLERK
   const { getToken } = useAuth()
 
   const [booking, setBookings] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
+  const location = useLocation() // ✅ detect URL change
+
   const getMyBookings = async () => {
     try {
-
-      // ✅ GET AUTH TOKEN
       const token = await getToken()
 
       const { data } = await axios.get('/api/user/bookings', {
@@ -33,12 +29,13 @@ const MyBookings = () => {
         }
       })
 
-      console.log("BOOKINGS RESPONSE:", data)
-
       if (data.success) {
-        setBookings(data.bookings || [])
-      } else {
-        console.log("API ERROR:", data.message)
+        const normalizedBookings = (data.bookings || []).map((item) => ({
+          ...item,
+          isPaid: item.isPaid === true || item.isPaid === 'true',
+          paymentLink: (item.paymentLink || '').trim()
+        }))
+        setBookings(normalizedBookings)
       }
 
     } catch (error) {
@@ -48,11 +45,96 @@ const MyBookings = () => {
     }
   }
 
+  const handlePayNow = async (bookingId, currentLink) => {
+    try {
+      const token = await getToken()
+      const { data } = await axios.post('/api/booking/refresh', { bookingId }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (data.success && data.url) {
+        window.location.href = data.url
+        return
+      }
+
+      if (currentLink) {
+        window.location.href = currentLink
+      } else {
+        toast.error('Unable to start payment flow. Please refresh and retry.')
+      }
+    } catch (error) {
+      console.error('handlePayNow error:', error)
+      if (currentLink) {
+        window.location.href = currentLink
+      } else {
+        toast.error('Unable to start payment flow. Please refresh and retry.')
+      }
+    }
+  }
+
   useEffect(() => {
     if (user) {
       getMyBookings()
     }
   }, [user])
+
+  // ✅ IMPORTANT: Refetch after payment redirect with delay for webhook processing
+  const confirmBookingPayment = async (sessionId) => {
+    if (!sessionId) return
+
+    try {
+      const token = await getToken()
+
+      const { data } = await axios.get('/api/user/bookings/confirm', {
+        params: { session_id: sessionId },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (data.success) {
+        console.log('Booking confirmed paid on backend')
+      } else {
+        console.log('Booking payment confirmation status:', data.message)
+      }
+    } catch (error) {
+      console.error('confirmBookingPayment ERROR:', error)
+    }
+  }
+
+  useEffect(() => {
+    let intervalId
+
+    const params = new URLSearchParams(location.search)
+    const success = params.get('success') === 'true'
+    const sessionId = params.get('session_id')
+
+    const refreshBookings = async () => {
+      if (success && sessionId) {
+        await confirmBookingPayment(sessionId)
+      }
+
+      await getMyBookings()
+
+      intervalId = setInterval(async () => {
+        await getMyBookings()
+      }, 3000)
+
+      setTimeout(() => {
+        clearInterval(intervalId)
+      }, 20000)
+    }
+
+    if (success) {
+      refreshBookings()
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [location.search])
 
   return !isLoading ? (
     <div className='relative px-6 md:px-16 lg:px-40 pt-30 min-h-[80vh]'>
@@ -103,10 +185,16 @@ const MyBookings = () => {
                 {currency}{item.amount}
               </p>
 
-              {!item.isPaid && (
-                <button className='bg-primary px-4 py-1.5 mb-3 text-sm rounded-full font-medium cursor-pointer'>
+              {/* ✅ FIXED CONDITION */}
+              {!(item.isPaid === true) && item.paymentLink ? (
+                <button
+                  onClick={() => handlePayNow(item._id, item.paymentLink)}
+                  className='bg-primary px-4 py-1.5 mb-3 text-sm rounded-full font-medium cursor-pointer text-white hover:bg-primary-darker transition'
+                >
                   Pay Now
                 </button>
+              ) : (
+                <span className='px-4 py-1.5 mb-3 text-sm rounded-full font-medium text-green-400'>Paid</span>
               )}
             </div>
 

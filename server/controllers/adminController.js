@@ -3,6 +3,8 @@ import Booking from "../models/Booking.js";
 import User from "../models/user.js";
 import { clerkClient } from "@clerk/express";
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "rrushikeshargade@gmail.com";
+
 export const isAdmin = async (req, res) => {
     try {
         const userId = req.auth().userId;
@@ -12,10 +14,11 @@ export const isAdmin = async (req, res) => {
         }
 
         const user = await clerkClient.users.getUser(userId);
-        const adminStatus = user.privateMetadata?.role === "admin";
+        const email = user.emailAddresses[0]?.emailAddress;
+        const adminStatus = email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
         console.log("userId:", userId);
-        console.log("privateMetadata:", user.privateMetadata);
+        console.log("email:", email);
         console.log("isAdmin:", adminStatus);
 
         res.json({ success: true, isAdmin: adminStatus });
@@ -28,27 +31,39 @@ export const isAdmin = async (req, res) => {
 
 export const getDashboardData = async (req, res) => {
     try {
-        // ✅ Run all queries in parallel for better performance
-        const [bookings, activeShows, totalUsers] = await Promise.all([
-            Booking.find({ isPaid: true }),
-            Show.find({ showDateTime: { $gte: new Date() } }).populate('movie'),
-            User.countDocuments()
+        const now = new Date();
+
+        // use counts and aggregations instead of fetching full collection
+        const totalBooking = await Booking.countDocuments({ isPaid: true });
+
+        const revenueResult = await Booking.aggregate([
+            { $match: { isPaid: true } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
         ]);
 
+        const totalRevenue = revenueResult[0]?.total || 0;
+
+        const activeShows = await Show.find({ showDateTime: { $gte: now } })
+            .populate('movie')
+            .sort({ showDateTime: 1 })
+            .limit(10);
+
+        const totalUsers = await User.countDocuments();
+
         const dashboardData = {
-            totalBooking: bookings.length,
-            totalRevenue: bookings.reduce((acc, booking) => acc + (booking.amount || 0), 0),
+            totalBooking,
+            totalRevenue,
             activeShows,
             totalUsers
         };
 
-        console.log("Dashboard data:", dashboardData); // 👈 check server terminal
+        console.log("Dashboard data:", dashboardData);
 
         res.json({ success: true, dashboardData });
 
     } catch (error) {
         console.error("getDashboardData error:", error.message);
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -67,14 +82,51 @@ export const getAllShows = async (req, res) => {
 
 export const getAllBookings = async (req, res) => {
     try {
-        const bookings = await Booking.find({}).populate('user').populate({
-            path: "show",
-            populate: { path: "movie" }
-        }).sort({ createdAt: -1 });
-        res.json({ success: true, bookings });
+        const page = parseInt(req.query.page || '1');
+        const limit = Math.min(parseInt(req.query.limit || '20'), 50);
+        const skip = (Math.max(page, 1) - 1) * limit;
+
+        const [totalBookings, bookings] = await Promise.all([
+            Booking.countDocuments(),
+            Booking.find({})
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate({
+                    path: "show",
+                    populate: { path: "movie" }
+                })
+                .lean()
+        ]);
+
+        const bookingsWithUserData = await Promise.all(
+            bookings.map(async (booking) => {
+                try {
+                    const clerkUser = await clerkClient.users.getUser(booking.user);
+                    return {
+                        ...booking,
+                        user: {
+                            id: booking.user,
+                            name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : clerkUser.emailAddresses[0]?.emailAddress || 'Unknown'
+                        }
+                    };
+                } catch (err) {
+                    console.error("User fetch error:", err);
+                    return {
+                        ...booking,
+                        user: {
+                            id: booking.user,
+                            name: 'Unknown User'
+                        }
+                    };
+                }
+            })
+        );
+
+        res.json({ success: true, bookings: bookingsWithUserData, totalBookings, page, limit });
 
     } catch (error) {
         console.error("getAllBookings error:", error.message);
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };

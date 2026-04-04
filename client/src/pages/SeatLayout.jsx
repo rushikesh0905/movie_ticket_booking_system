@@ -108,44 +108,34 @@ const SeatLayout = () => {
 
   // ✅ BOOK TICKETS
   const bookTickets = async () => {
-    try {
-      console.log("BOOKING DATA:", { selectedTime, selectedSeats })
+  try {
 
-      if (!user) {
-        return toast.error("Please login first")
-      }
-
-      if (!selectedTime || !selectedSeats.length) {
-        return toast.error("Please select time and seats")
-      }
-
-      const showId = selectedTime.showId
-
-      if (!showId) {
-        return toast.error("Show ID missing")
-      }
-
-      const { data } = await axios.post(
-        '/api/booking/create',
-        { showId, selectedSeats }
-      )
-
-      if (data.success) {
-        window.location.href=data.url;
-
-        // ✅ refresh occupied seats
-        await getOccupiedSeats()
-
-        navigate('/my-bookings')
-      } else {
-        toast.error(data.message)
-      }
-
-    } catch (error) {
-      console.log(error)
-      toast.error("Something went wrong")
+    if (!user) {
+      return toast.error("Please login first")
     }
+
+    if (!selectedTime || !selectedSeats.length) {
+      return toast.error("Please select time and seats")
+    }
+
+    const showId = selectedTime.showId
+
+    const { data } = await axios.post(
+      '/api/booking/create',
+      { showId, selectedSeats }
+    )
+
+    if (data.success) {
+      window.location.href = data.url; // ✅ only this
+    } else {
+      toast.error(data.message)
+    }
+
+  } catch (error) {
+    console.log(error)
+    toast.error("Something went wrong")
   }
+}
 
   useEffect(() => {
     getShow()

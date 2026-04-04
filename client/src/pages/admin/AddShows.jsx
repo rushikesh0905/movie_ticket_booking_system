@@ -86,7 +86,7 @@ const AddShows = () => {
       }
 
       const showsInput = Object.entries(dateTimeSelection).map(
-        ([date, time]) => ({ date, time })
+        ([date, times]) => ({ date, time: times })
       );
 
       const payLoad = {
@@ -95,11 +95,15 @@ const AddShows = () => {
         showPrice: Number(showPrice)
       }
 
+      console.log("Payload being sent:", payLoad);
+
       const { data } = await axios.post('/api/show/add', payLoad, {
         headers: {
           Authorization: `Bearer ${await getToken()}`
         }
       })
+
+      console.log("Response:", data);
 
       if (data.success) {
         toast.success(data.message)
@@ -107,12 +111,12 @@ const AddShows = () => {
         setDateTimeSelection({})
         setShowPrice("")
       } else {
-        toast.error(data.message)
+        toast.error(data.message || 'Failed to add show')
       }
 
     } catch (error) {
       console.error("Submission error:", error);
-      toast.error('An error occurred. Please try again.')
+      toast.error(error?.response?.data?.message || error.message || 'An error occurred. Please try again.')
     } finally {
       setAddingShow(false) 
     }

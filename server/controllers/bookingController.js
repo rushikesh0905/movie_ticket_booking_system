@@ -1,86 +1,209 @@
 import Booking from "../models/Booking.js";
-import Show from "../models/Show.js"; // ✅ Fix 1: missing Show import
-import Stripe from "stripe"; // ✅ Fix 2: Stripe should be capitalized
+import Show from "../models/Show.js";
+import Stripe from "stripe";
 
-// ✅ CREATE BOOKING
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 export const createBooking = async (req, res) => {
   try {
     const { userId } = req.auth();
 
     if (!userId) {
-      return res.json({
-        success: false,
-        message: "User not authenticated"
-      });
+      return res.json({ success: false, message: "User not authenticated" });
     }
 
     const { showId, selectedSeats } = req.body;
 
     if (!showId || !selectedSeats?.length) {
-      return res.json({
-        success: false,
-        message: "Missing showId or seats"
-      });
+      return res.json({ success: false, message: "No seats selected" });
     }
 
-    // ✅ Fix 3: fetch show data to get price and movie info
-    const showData = await Show.findById(showId).populate('movie');
+    const showData = await Show.findById(showId).populate("movie");
 
     if (!showData) {
+      return res.json({ success: false, message: "Show not found" });
+    }
+
+    // ✅ CHECK already booked seats
+    const existingBookings = await Booking.find({ show: showId });
+    const occupiedSeats = existingBookings.flatMap(b => b.seats);
+
+    const isAnySeatTaken = selectedSeats.some(seat => occupiedSeats.includes(seat));
+
+    if (isAnySeatTaken) {
       return res.json({
         success: false,
-        message: "Show not found"
+        message: "Some seats already booked"
       });
     }
 
+    // ✅ Avoid duplicate unpaid booking for same user/show/seats
+    let existingUnpaid = await Booking.findOne({
+      user: userId,
+      show: showId,
+      isPaid: false,
+      seats: { $all: selectedSeats, $size: selectedSeats.length }
+    });
+
+    if (existingUnpaid) {
+      try {
+        if (existingUnpaid.stripeSessionId) {
+          const stripeSession = await stripe.checkout.sessions.retrieve(existingUnpaid.stripeSessionId);
+
+          if (stripeSession && stripeSession.payment_status === 'paid') {
+            existingUnpaid.isPaid = true;
+            existingUnpaid.paymentLink = '';
+            await existingUnpaid.save();
+            return res.json({ success: true, message: 'Booking is already paid' });
+          }
+
+          if (stripeSession && stripeSession.status === 'open' && stripeSession.url) {
+            existingUnpaid.paymentLink = stripeSession.url;
+            await existingUnpaid.save();
+            return res.json({ success: true, url: stripeSession.url, message: 'Returning existing unpaid checkout link' });
+          }
+        }
+      } catch (err) {
+        console.error('existingUnpaid stripe retrieve error:', err.message || err);
+      }
+
+      // If we reach here, previous checkout session is expired/cancelled or invalid.
+      // Reuse existing booking record and create a fresh Stripe session.
+      const existingBookingId = existingUnpaid._id;
+
+      const refreshedSession = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: showData.movie.title
+              },
+              unit_amount: Math.floor(existingUnpaid.amount * 100)
+            },
+            quantity: 1
+          }
+        ],
+        success_url: `${origin}/my-bookings?success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/my-bookings?canceled=true`,
+        metadata: {
+          bookingId: existingBookingId.toString()
+        }
+      });
+
+      existingUnpaid.paymentLink = refreshedSession.url;
+      existingUnpaid.stripeSessionId = refreshedSession.id;
+      await existingUnpaid.save();
+
+      return res.json({
+        success: true,
+        url: refreshedSession.url,
+        message: 'Existing unpaid booking refreshed with new checkout link'
+      });
+    }
+
+    // ✅ CREATE booking as UNPAID
     const booking = await Booking.create({
       user: userId,
       show: showId,
-      bookedSeats: selectedSeats, // ✅ Fix 4: was "seats" should be "bookedSeats"
-      amount: selectedSeats.length * showData.showPrice // ✅ Fix 5: use actual show price
+      seats: selectedSeats,
+      amount: selectedSeats.length * showData.showPrice,
+      isPaid: false
     });
 
-    // ✅ Fix 6: get origin from request headers
     const origin = req.headers.origin || "http://localhost:5173";
 
-    // Stripe Gateway Initialize
-    const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY); // ✅ Fix 7: typo "stripeInsatnce"
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
 
-    // ✅ Fix 8: creating line items for stripe
-    const line_items = [{
-      price_data: {
-        currency: "usd", // ✅ Fix 9: was "currency_data" should be "currency"
-        product_data: { // ✅ Fix 10: was "currency_data" should be "product_data"
-          name: showData.movie.title
-        },
-        unit_amount: Math.floor(booking.amount) * 100 // ✅ Fix 11: typo "unit_amout"
-      },
-      quantity: 1
-    }]
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: showData.movie.title
+            },
+            unit_amount: Math.floor(booking.amount * 100)
+          },
+          quantity: 1
+        }
+      ],
 
-    const session = await stripeInstance.checkout.sessions.create({
-      success_url: `${origin}/loading/my-bookings`, // ✅ Fix 12: typo "success_ulr"
-      cancel_url: `${origin}/my-bookings`,
-      line_items: line_items,
-      mode: 'payment',
+      success_url: `${origin}/my-bookings?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/my-bookings?canceled=true`,
+
       metadata: {
         bookingId: booking._id.toString()
-      },
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60 // ✅ Fix 13: typo "Data.now()"
-    })
+      }
+    });
 
-    booking.paymentLink = session.url
-    await booking.save()
+    booking.paymentLink = session.url;
+    booking.stripeSessionId = session.id;
+    await booking.save();
 
-    // ✅ Fix 14: removed duplicate res.json - only send one response
-    return res.json({ success: true, url: session.url })
+    return res.json({
+      success: true,
+      url: session.url
+    });
 
   } catch (error) {
     console.error("BOOKING ERROR:", error);
     return res.json({
       success: false,
-      message: error.message || "Booking failed"
+      message: error.message
     });
+  }
+};
+
+export const refreshBookingPayment = async (req, res) => {
+  try {
+    const userId = req.auth().userId;
+    const { bookingId } = req.body;
+
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: 'bookingId is required' });
+    }
+
+    const booking = await Booking.findById(bookingId).populate('show');
+    if (!booking || booking.user.toString() !== userId.toString()) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.isPaid) {
+      return res.status(400).json({ success: false, message: 'Booking already paid' });
+    }
+
+    const origin = req.headers.origin || 'http://localhost:5173';
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: { name: booking.show.movie?.title || 'Ticket' },
+            unit_amount: Math.floor(booking.amount * 100)
+          },
+          quantity: 1
+        }
+      ],
+      success_url: `${origin}/my-bookings?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/my-bookings?canceled=true`,
+      metadata: { bookingId: booking._id.toString() }
+    });
+
+    booking.paymentLink = session.url;
+    booking.stripeSessionId = session.id;
+    await booking.save();
+
+    return res.json({ success: true, url: session.url });
+  } catch (error) {
+    console.error('refreshBookingPayment ERROR:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -91,8 +214,7 @@ export const getOccupiedSeats = async (req, res) => {
 
     const bookings = await Booking.find({ show: showId });
 
-    // ✅ Fix 15: was "seats" should be "bookedSeats"
-    const occupiedSeats = bookings.flatMap(b => b.bookedSeats);
+    const occupiedSeats = bookings.flatMap(b => b.seats);
 
     return res.json({
       success: true,

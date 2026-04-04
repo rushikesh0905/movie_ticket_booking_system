@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from "express";
 import cors from "cors";
 import connectDB from "./configs/db.js";
-import { clerkMiddleware } from '@clerk/express'
+import { clerkMiddleware } from '@clerk/express';
 import { serve } from "inngest/express";
 import { functions, inngest } from "./inngest/index.js";
 import showRouter from "./routes/showRoutes.js";
@@ -16,24 +16,33 @@ const port = 3000;
 
 await connectDB();
 
-//Stripe Webhooks Route
 
-app.use('/api/stripe',express.raw({type:'application/json'}),stripeWebhooks)
+// ✅ 1. STRIPE WEBHOOK (MUST BE FIRST & RAW)
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeWebhooks
+);
 
-// ✅ MIDDLEWARES
+
+// ✅ 2. CORS
 app.use(cors({
-    origin: "http://localhost:5173",
-    credentials: true
+  origin: "http://localhost:5173",
+  credentials: true
 }));
 
+
+// ✅ 3. JSON parser (AFTER webhook)
 app.use(express.json());
 
-// ✅ IMPORTANT: Clerk middleware with secret key
+
+// ✅ 4. Clerk
 app.use(
   clerkMiddleware({
     secretKey: process.env.CLERK_SECRET_KEY
   })
 );
+
 
 // ROUTES
 app.get('/', (req, res) => res.send('Server is Live!'));
@@ -44,4 +53,7 @@ app.use('/api/booking', bookingRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/user', userRouter);
 
-app.listen(port, () => console.log(`Server listening at http://localhost:${port}`));
+
+app.listen(port, () =>
+  console.log(`🚀 Server running at http://localhost:${port}`)
+);

@@ -7,23 +7,33 @@ import Loading from '../../components/Loading'
 
 const Layout = () => {
 
-  const {isAdmin ,fetchIsAdmin}=useAppContext();
+  const { isAdmin } = useAppContext();
 
-  useEffect(()=>{
-    fetchIsAdmin()
-  },[])
+  console.log("Layout isAdmin:", isAdmin);
 
-  return isAdmin ? (
+  if (isAdmin === null) {
+    return <Loading />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className='flex justify-center items-center h-screen'>
+        <h1 className='text-2xl text-red-500'>⛔ You are not authorized to access admin dashboard</h1>
+      </div>
+    );
+  }
+
+  return (
     <>
-        <AdminNavbar/>
-        <div className='flex'>
-            <AdminSidebar/>
-            <div className='flex-1 px-10 pt-6 overflow-y-auto'>
-                <Outlet/>
-            </div>
+      <AdminNavbar />
+      <div className='flex'>
+        <AdminSidebar />
+        <div className='flex-1 px-10 pt-6 overflow-y-auto'>
+          <Outlet />
         </div>
+      </div>
     </>
-  ) : <Loading/>
+  );
 }
 
 export default Layout
