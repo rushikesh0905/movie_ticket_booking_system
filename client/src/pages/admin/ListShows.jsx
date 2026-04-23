@@ -8,7 +8,9 @@ import { useAppContext } from '../../context/AppContext';
 
 const ListShows = () => {
 
-    const currency = import.meta.env.VITE_CURRENCY  // ✅ fixed name
+    const currency = import.meta.env.VITE_CURRENCY && import.meta.env.VITE_CURRENCY !== "$"
+      ? import.meta.env.VITE_CURRENCY
+      : "₹"
 
   const {axios ,getToken ,user}=useAppContext()
 

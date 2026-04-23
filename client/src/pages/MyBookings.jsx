@@ -10,7 +10,9 @@ import toast from 'react-hot-toast'
 
 const MyBookings = () => {
 
-  const currency = import.meta.env.VITE_CURRENCY
+  const currency = import.meta.env.VITE_CURRENCY && import.meta.env.VITE_CURRENCY !== "$"
+    ? import.meta.env.VITE_CURRENCY
+    : "₹"
   const { axios, user, image_base_url } = useAppContext()
   const { getToken } = useAuth()
 

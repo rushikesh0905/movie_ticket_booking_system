@@ -13,7 +13,7 @@ export const assets = {
     screenImage,
     profile
 }
-export const Currency = "$";
+export const Currency = "₹";
 export const dummyTrailers = [
   {
     image: "https://img.youtube.com/vi/WpW36ldAqnM/maxresdefault.jpg",

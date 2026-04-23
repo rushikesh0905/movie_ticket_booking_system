@@ -13,7 +13,9 @@ const Dashboard = () => {
   const { axios, getToken, user } = useAppContext()
 
   const image_base_url = "https://image.tmdb.org/t/p/w500"
-  const currency = import.meta.env.VITE_CURRENCY
+  const currency = import.meta.env.VITE_CURRENCY && import.meta.env.VITE_CURRENCY !== "$"
+    ? import.meta.env.VITE_CURRENCY
+    : "₹"
 
   const [dashboardData, setDashboardData] = useState({
     totalBooking: 0,    

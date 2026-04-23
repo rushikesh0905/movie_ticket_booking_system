@@ -16,6 +16,12 @@ const port = process.env.PORT || 3000;
 
 await connectDB();
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+].filter(Boolean);
+
 
 // ✅ 1. STRIPE WEBHOOK (MUST BE FIRST & RAW)
 app.post(
@@ -27,8 +33,14 @@ app.post(
 
 // ✅ 2. CORS
 app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
 }));
 
 

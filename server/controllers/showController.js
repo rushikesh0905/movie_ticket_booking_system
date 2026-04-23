@@ -157,8 +157,11 @@ export const getShows = async (req, res) => {
 
         const moviesById = new Map();
         shows.forEach((show) => {
-            if (show.movie && show.movie._id) {
-                moviesById.set(show.movie._id.toString(), show.movie);
+            if (show.movie && show.movie._id && !moviesById.has(show.movie._id.toString())) {
+                moviesById.set(show.movie._id.toString(), {
+                    ...show.movie.toObject(),
+                    showPrice: show.showPrice,
+                });
             }
         });
 
@@ -181,6 +184,7 @@ export const getShow = async (req, res) => {
 
         const movie = await Movie.findById(movieId);
         const dateTime = {};
+        const showPrice = shows[0]?.showPrice || 0;
 
         shows.forEach((show) => {
             const localDate = new Date(show.showDateTime).toLocaleDateString('en-CA');
@@ -190,7 +194,7 @@ export const getShow = async (req, res) => {
             dateTime[localDate].push({ time: show.showDateTime, showId: show._id });
         });
 
-        res.json({ success: true, movie, dateTime });
+        res.json({ success: true, movie, dateTime, showPrice });
 
     } catch (error) {
         console.error(error);
