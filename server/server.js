@@ -66,11 +66,6 @@ app.use('/api/admin', adminRouter);
 app.use('/api/user', userRouter);
 
 
-
-if (process.env.VERCEL !== '1') {
-  app.listen(port, () =>
-    console.log(`🚀 Server running at http://localhost:${port}`)
-  );
-}
-
-export default app;
+app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
+});
