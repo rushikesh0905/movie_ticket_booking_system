@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import Movies from './pages/Movies'
+import NewRelease from './pages/NewRelease'
 import MovieDetails from './pages/MovieDetails'
 import SeatLayout from './pages/SeatLayout'
 import MyBookings from './pages/MyBookings'
@@ -44,6 +45,7 @@ const App = () => {
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/movies' element={<Movies />} />
+        <Route path='/new-release' element={<NewRelease />} />
         <Route path='/movies/:id' element={<MovieDetails />} />
         <Route path='/movies/:id/seats/:date' element={<SeatLayout />} />
         <Route path='/my-bookings' element={<MyBookings />} />

@@ -122,7 +122,7 @@ const Navbar = () => {
         </div>
 
         <div className="relative group">
-          <Link className="transition-transform duration-200 md:group-hover:scale-110" onClick={() => {scrollTo(0,0); setIsOpen(false)}} to="/">Releases</Link>
+          <Link className="transition-transform duration-200 md:group-hover:scale-110" onClick={() => {scrollTo(0,0); setIsOpen(false)}} to="/new-release">Releases</Link>
           <span className="hidden md:block absolute -top-10 left-1/2 -translate-x-1/2 translate-y-1 scale-95 px-2 py-1 text-xs rounded-md bg-black/90 border border-white/20 text-white opacity-0 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none whitespace-nowrap">
             Latest Releases
           </span>
