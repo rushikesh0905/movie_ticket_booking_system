@@ -5,18 +5,14 @@ import { BellIcon } from 'lucide-react'
 import { useAppContext } from '../../context/AppContext'
 
 const AdminNavbar = () => {
-  const { axios, getToken } = useAppContext();
+  const { axios } = useAppContext();
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const fetchNotifications = async () => {
     try {
-      const { data } = await axios.get('/api/admin/notifications', {
-        headers: {
-          Authorization: `Bearer ${await getToken()}`,
-        },
-      });
+      const { data } = await axios.get('/api/admin/notifications');
 
       if (data.success) {
         setNotifications(data.notifications);
@@ -43,7 +39,7 @@ const AdminNavbar = () => {
 
   return (
     <div className='flex items-center justify-between px-6 md:px-10 h-16 border-b border-gray-300/30 relative'>
-      <Link to={'/'} className='flex-shrink-0'>
+      <Link to={'/'} className='shrink-0'>
         <img src={assets.logo} alt='logo' className='w-40 h-auto relative -left-4 md:-left-6' />
       </Link>
 
@@ -54,7 +50,7 @@ const AdminNavbar = () => {
             onClick={() => setIsOpen((prev) => !prev)}
             className='relative p-2 rounded-full hover:bg-gray-100 transition'
           >
-            <BellIcon className='w-6 h-6 text-gray-700' />
+            <BellIcon className='w-6 h-6 text-white hover:text-gray-300' />
             {notifications.length > 0 && (
               <span className='absolute top-0 right-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white text-[11px]'>
                 {notifications.length}

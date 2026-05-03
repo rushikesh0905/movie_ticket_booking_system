@@ -12,17 +12,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@clerk/express": "^2.0.6",
     "axios": "^1.13.6",
+    "bcrypt": "^5.1.1",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "inngest": "^4.0.5",
+    "jsonwebtoken": "^9.1.2",
     "mongoose": "^9.3.1",
     "nodemailer": "^8.0.4",
-    "stripe": "^21.0.1",
-    "svix": "^1.90.0"
+    "stripe": "^21.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

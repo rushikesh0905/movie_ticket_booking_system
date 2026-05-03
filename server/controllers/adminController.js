@@ -1,24 +1,26 @@
 import Show from "../models/Show.js";
 import Booking from "../models/Booking.js";
 import User from "../models/user.js";
-import { clerkClient } from "@clerk/express";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "rrushikeshargade@gmail.com";
 
 export const isAdmin = async (req, res) => {
     try {
-        const userId = req.auth().userId;
+        const userId = req.userId;
 
         if (!userId) {
             return res.json({ success: false, isAdmin: false, message: "Not logged in" });
         }
 
-        const user = await clerkClient.users.getUser(userId);
-        const email = user.emailAddresses[0]?.emailAddress;
-        const adminStatus = email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.json({ success: false, isAdmin: false, message: "User not found" });
+        }
+
+        const adminStatus = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
         console.log("userId:", userId);
-        console.log("email:", email);
+        console.log("email:", user.email);
         console.log("isAdmin:", adminStatus);
 
         res.json({ success: true, isAdmin: adminStatus });
@@ -83,8 +85,8 @@ export const getBookingNotifications = async (req, res) => {
                 let userName = 'Unknown User';
 
                 try {
-                    const clerkUser = await clerkClient.users.getUser(booking.user);
-                    userName = clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : clerkUser.emailAddresses[0]?.emailAddress || 'Unknown User';
+                    const user = await User.findById(booking.user);
+                    userName = user?.name || user?.email || 'Unknown User';
                 } catch (err) {
                     console.error("Notification user fetch error:", err.message);
                 }
@@ -142,12 +144,12 @@ export const getAllBookings = async (req, res) => {
         const bookingsWithUserData = await Promise.all(
             bookings.map(async (booking) => {
                 try {
-                    const clerkUser = await clerkClient.users.getUser(booking.user);
+                    const user = await User.findById(booking.user);
                     return {
                         ...booking,
                         user: {
                             id: booking.user,
-                            name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : clerkUser.emailAddresses[0]?.emailAddress || 'Unknown'
+                            name: user?.name || user?.email || 'Unknown'
                         }
                     };
                 } catch (err) {

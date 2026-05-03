@@ -6,13 +6,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const createBooking = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const { userId } = req;
 
     if (!userId) {
       return res.json({ success: false, message: "User not authenticated" });
     }
 
     const { showId, selectedSeats } = req.body;
+    const origin = req.headers.origin || "http://localhost:5173";
 
     if (!showId || !selectedSeats?.length) {
       return res.json({ success: false, message: "No seats selected" });
@@ -113,8 +114,6 @@ export const createBooking = async (req, res) => {
       isPaid: false
     });
 
-    const origin = req.headers.origin || "http://localhost:5173";
-
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -160,7 +159,7 @@ export const createBooking = async (req, res) => {
 
 export const refreshBookingPayment = async (req, res) => {
   try {
-    const userId = req.auth().userId;
+    const { userId } = req;
     const { bookingId } = req.body;
 
     if (!bookingId) {

@@ -8,10 +8,8 @@ import MovieCard from '../components/MovieCard'
 import Loading from '../components/Loading'
 import ReactPlayer from 'react-player'
 import { useAppContext } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
-
-// ✅ FIX: import Clerk auth
-import { useAuth } from "@clerk/clerk-react"
 
 const MovieDetails = () => {
 
@@ -24,14 +22,12 @@ const MovieDetails = () => {
   const {
     shows,
     axios,
-    user,
     fetchFavoriteMovies,
     favoriteMovies,
     image_base_url
   } = useAppContext()
 
-  // ✅ FIX: getToken from Clerk
-  const { getToken } = useAuth()
+  const { user } = useAuth()
 
   const getShow = async () => {
     try {
@@ -48,16 +44,10 @@ const MovieDetails = () => {
     try {
       if (!user) return toast.error("Please login to proceed")
 
-      const token = await getToken()
-
       const { data } = await axios.post(
         "/api/user/update-favorite",
         { movieId: id },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+        {}
       )
 
       console.log("FAVORITE RESPONSE:", data)

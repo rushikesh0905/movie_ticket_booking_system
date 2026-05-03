@@ -7,6 +7,9 @@ import MovieDetails from './pages/MovieDetails'
 import SeatLayout from './pages/SeatLayout'
 import MyBookings from './pages/MyBookings'
 import Favorite from './pages/Favorite'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 import { Toaster } from "react-hot-toast"
 import Footer from "./components/Footer"
 import Layout from './pages/admin/Layout'
@@ -14,20 +17,18 @@ import Dashboard from './pages/admin/Dashboard'
 import AddShows from './pages/admin/AddShows'
 import ListShows from './pages/admin/ListShows'
 import ListBookings from './pages/admin/ListBookings'
-import { useAppContext } from './context/AppContext'
-import { SignIn, useUser } from '@clerk/clerk-react'
+import { useAuth } from './context/AuthContext'
 import Loading from './components/Loading'
 
 const App = () => {
-
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith("/admin")
+  const isAuthRoute = ['/login', '/register', '/forgot-password'].includes(location.pathname)
 
-  const { user, isAdmin, loading } = useAppContext()
-  const { isLoaded } = useUser()
+  const { user, isAdmin, loading } = useAuth()
 
-  // ✅ Wait for Clerk + admin check to complete
-  if (loading || !isLoaded) {
+  // ✅ Wait for auth check to complete
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-xl">Loading...</p>
@@ -38,7 +39,7 @@ const App = () => {
   return (
     <>
       <Toaster />
-      {!isAdminRoute && <Navbar />}
+      {!isAdminRoute && !isAuthRoute && <Navbar />}
 
       <Routes>
         <Route path='/' element={<Home />} />
@@ -48,15 +49,28 @@ const App = () => {
         <Route path='/my-bookings' element={<MyBookings />} />
         <Route path='/loading/:nextUrl' element={<Loading />} />
         <Route path='/favorite' element={<Favorite />} />
+        
+        {/* Auth Routes */}
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
+        
         <Route path='*' element={<h1>Page Not Found</h1>} />
 
+        {/* Admin Routes */}
         <Route
           path='/admin/*'
           element={
             !user ? (
-              // ✅ Not logged in - show SignIn
+              // ✅ Not logged in - redirect to login
               <div className="flex justify-center items-center h-screen">
-                <SignIn fallbackRedirectUrl={'/admin'} />
+                <div className="text-center">
+                  <h1 className="text-2xl text-red-500 mb-4">⛔ Access Denied</h1>
+                  <p className="text-gray-400 mb-6">Please login first</p>
+                  <a href="/login" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block">
+                    Go to Login
+                  </a>
+                </div>
               </div>
             ) : isAdmin ? (
               // ✅ Logged in AND is admin - show dashboard
@@ -78,7 +92,7 @@ const App = () => {
         </Route>
       </Routes>
 
-      {!isAdminRoute && <Footer />}
+      {!isAdminRoute && !isAuthRoute && <Footer />}
     </>
   )
 }

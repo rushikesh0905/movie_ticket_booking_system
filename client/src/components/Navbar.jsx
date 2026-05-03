@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { assets } from "../assets/assets";
-import { MenuIcon, SearchIcon, TicketPlus, XIcon, BellIcon } from "lucide-react";
-import { useClerk, UserButton, useUser } from "@clerk/clerk-react";
+import { MenuIcon, SearchIcon, TicketPlus, XIcon, BellIcon, LogOut, LogIn, User } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-
   const [isOpen, setIsOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -15,11 +15,11 @@ const Navbar = () => {
   const notificationRef = useRef(null);
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
-  const {user}=useUser();
-  const {openSignIn}=useClerk();
-  const navigate=useNavigate();
+  const userMenuRef = useRef(null);
 
-  const {favoriteMovies, isAdmin, fetchIsAdmin, axios, getToken, shows, image_base_url}=useAppContext();
+  const { user, isAdmin, logout, axios, checkAdminStatus } = useAuth();
+  const { favoriteMovies, shows, image_base_url } = useAppContext();
+  const navigate = useNavigate();
 
   const filteredMovies = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -30,24 +30,12 @@ const Navbar = () => {
       .slice(0, 6);
   }, [searchQuery, shows]);
 
-  // ✅ Refetch admin status when component mounts or user changes
-  useEffect(() => {
-    if (user && fetchIsAdmin) {
-      fetchIsAdmin();
-    }
-  }, [user]);
-
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!user || !isAdmin) return;
 
       try {
-        const { data } = await axios.get('/api/admin/notifications', {
-          headers: {
-            Authorization: `Bearer ${await getToken()}`,
-          },
-        });
-
+        const { data } = await axios.get('/api/admin/notifications');
         if (data.success) {
           setNotifications(data.notifications);
         }
@@ -57,16 +45,18 @@ const Navbar = () => {
     };
 
     fetchNotifications();
-  }, [user, isAdmin, axios, getToken]);
+  }, [user, isAdmin, axios]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
-
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowSearch(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
       }
     };
 
@@ -87,10 +77,14 @@ const Navbar = () => {
     window.scrollTo(0, 0);
   };
 
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+  };
+
   return (
     <div className="fixed top-0 left-0 z-50 w-full flex items-center justify-between px-6 md:px-16 lg:px-36 py-5">
-
-      <Link to="/" className="flex-shrink-0">
+      <Link to="/" className="shrink-0">
         <img src={assets.logo} alt="logo" className="w-40 h-auto relative -left-4 md:-left-6" />
       </Link>
 
@@ -246,22 +240,58 @@ const Navbar = () => {
             </div>
           )}
         </div>
-        {
-          !user ? (
-            <button onClick={openSignIn} className="px-4 py-1 sm:px-7 sm:py-2 bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer">
-          Login
-        </button>
-          ) : (
-            <UserButton> 
-              <UserButton.MenuItems>
-                <UserButton.Action label="My Bookings" labelIcon={<TicketPlus width={15}/>} onClick={()=>navigate('/my-bookings')}/>
+        {!user ? (
+          <Link to="/login" className="px-4 py-1 sm:px-7 sm:py-2 bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer flex items-center gap-2">
+            <LogIn width={18} /> Login
+          </Link>
+        ) : (
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition"
+            >
+              <User width={20} />
+              <span className="hidden sm:inline max-w-25 truncate">{user.name}</span>
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-gray-900 border border-white/20 rounded-lg shadow-2xl z-50">
+                <div className="px-4 py-3 border-b border-white/10">
+                  <p className="text-sm font-semibold text-white">{user.name}</p>
+                  <p className="text-xs text-gray-400">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    navigate("/my-bookings");
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-3 hover:bg-white/10 transition flex items-center gap-2 text-sm"
+                >
+                  <TicketPlus width={16} /> My Bookings
+                </button>
                 {isAdmin && (
-                  <UserButton.Action label="Admin Dashboard" onClick={()=>navigate('/admin')}/>
+                  <button
+                    onClick={() => {
+                      navigate("/admin");
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-white/10 transition flex items-center gap-2 text-sm text-primary font-semibold"
+                  >
+                    Admin Dashboard
+                  </button>
                 )}
-              </UserButton.MenuItems>
-            </UserButton>
-          )
-        }
+                <div className="border-t border-white/10">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 hover:bg-red-500/10 transition flex items-center gap-2 text-sm text-red-400"
+                  >
+                    <LogOut width={16} /> Logout
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <MenuIcon

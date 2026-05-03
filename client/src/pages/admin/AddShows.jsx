@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'; // ✅ Fix 1: added missing toast import
 const AddShows = () => {
 
   
-  const { axios, getToken, user } = useAppContext()
+  const { axios, user } = useAppContext()
 
   
   const image_base_url = "https://image.tmdb.org/t/p/w500"
@@ -28,9 +28,7 @@ const AddShows = () => {
 
   const fetchNowPlayingMovies = async () => {
     try {
-      const { data } = await axios.get('/api/show/now-playing', {
-        headers: { Authorization: `Bearer ${await getToken()}` }
-      })
+      const { data } = await axios.get('/api/show/now-playing')
       if (data.success) {
         setNowPlayingMovies(data.movies)
       }
@@ -99,11 +97,7 @@ const AddShows = () => {
 
       console.log("Payload being sent:", payLoad);
 
-      const { data } = await axios.post('/api/show/add', payLoad, {
-        headers: {
-          Authorization: `Bearer ${await getToken()}`
-        }
-      })
+      const { data } = await axios.post('/api/show/add', payLoad)
 
       console.log("Response:", data);
 

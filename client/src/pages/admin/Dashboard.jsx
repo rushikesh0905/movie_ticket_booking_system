@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 
 const Dashboard = () => {
 
-  const { axios, getToken, user } = useAppContext()
+  const { axios, user } = useAppContext()
 
   const image_base_url = "https://image.tmdb.org/t/p/w500"
   const currency = import.meta.env.VITE_CURRENCY && import.meta.env.VITE_CURRENCY !== "$"
@@ -35,11 +35,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const { data } = await axios.get("/api/admin/dashboard", {
-        headers: {
-          Authorization: `Bearer ${await getToken()}`
-        }
-      })
+      const { data } = await axios.get("/api/admin/dashboard")
       console.log("Dashboard response:", data) 
       if (data.success) {
         setDashboardData(data.dashboardData)

@@ -1,4 +1,4 @@
-import { clerkClient } from "@clerk/express";
+import User from "../models/user.js";
 import Stripe from "stripe";
 import Booking from "../models/Booking.js";   
 import Movie from "../models/Movie.js";        
@@ -10,10 +10,10 @@ const isValidEmail = (email) => {
   return /^\S+@\S+\.\S+$/.test(email);
 };
 
-// ✅ Fix 1: "requestAnimationFrame" renamed to "req"
+// ✅ getUserBookings - Get user's bookings
 export const getUserBookings = async (req, res) => {
     try {
-        const userId = req.auth().userId;  
+        const userId = req.userId;
 
         if (!userId) {
             return res.json({
@@ -37,9 +37,10 @@ export const getUserBookings = async (req, res) => {
     }
 };
 
+// ✅ confirmBookingPayment - Confirm payment and send email
 export const confirmBookingPayment = async (req, res) => {
   try {
-    const userId = req.auth().userId;
+    const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
@@ -71,9 +72,9 @@ export const confirmBookingPayment = async (req, res) => {
 
       // Send confirmation email
       try {
-        const clerkUser = await clerkClient.users.getUser(userId);
-        const userEmail = clerkUser.emailAddresses[0]?.emailAddress;
-        const userName = clerkUser.firstName || clerkUser.lastName || "User";
+        const user = await User.findById(userId);
+        const userEmail = user?.email;
+        const userName = user?.name || "User";
 
         if (isValidEmail(userEmail)) {
           await sendEmail({
@@ -139,27 +140,42 @@ export const confirmBookingPayment = async (req, res) => {
   }
 };
 
+// ✅ updateFavorite - Add/remove movie from favorites
 export const updateFavorite = async (req, res) => {
     try {
         const { movieId } = req.body;
-        const userId = req.auth().userId;
-        const user = await clerkClient.users.getUser(userId)
+        const userId = req.userId;
 
-        if (!user.privateMetadata.favorites) {
-            user.privateMetadata.favorites = []
+        if (!userId) {
+            return res.json({
+                success: false,
+                message: "User not authenticated"
+            });
         }
-        if (!user.privateMetadata.favorites.includes(movieId)) {
-            user.privateMetadata.favorites.push(movieId)
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // Initialize favorites array if it doesn't exist
+        if (!user.favorites) {
+            user.favorites = [];
+        }
+
+        // Toggle favorite
+        if (user.favorites.includes(movieId)) {
+            user.favorites = user.favorites.filter(id => id !== movieId);
         } else {
-            user.privateMetadata.favorites = user.privateMetadata.favorites.filter(
-                item => item !== movieId
-            )
+            user.favorites.push(movieId);
         }
-        await clerkClient.users.updateUserMetadata(userId, {
-            privateMetadata: user.privateMetadata
-        })
 
-        res.json({ success: true, message: "Favorite updated successfully" })
+        await user.save();
+
+        res.json({ success: true, message: "Favorite updated successfully" });
 
     } catch (error) {
         console.error(error.message);
@@ -167,18 +183,31 @@ export const updateFavorite = async (req, res) => {
     }
 }
 
+// ✅ getFavorites - Get user's favorite movies
 export const getFavorites = async (req, res) => {
     try {
-        
-        const user = await clerkClient.users.getUser(req.auth().userId)
-        const favorites = user.privateMetadata.favorites || [];  // ✅ Fix 6: handle undefined
+        const userId = req.userId;
 
-        const movies = await Movie.find({ _id: { $in: favorites } })
+        if (!userId) {
+            return res.json({
+                success: false,
+                message: "User not authenticated"
+            });
+        }
 
-        
-        res.json({ success: true, movies })
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        const favorites = user.favorites || [];
+        const movies = await Movie.find({ _id: { $in: favorites } });
+
+        res.json({ success: true, movies });
     } catch (error) {
-       
         console.error(error.message);
         res.json({ success: false, message: error.message });
     }

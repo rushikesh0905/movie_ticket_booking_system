@@ -4,7 +4,7 @@ import BlurCircle from '../components/BlurCircle'
 import timeFormat from '../lib/timeFormat'
 import { dateFormat } from '../lib/dateFormat'
 import { useAppContext } from '../context/AppContext'
-import { useAuth } from "@clerk/clerk-react"
+import { useAuth } from '../context/AuthContext'
 import { Link, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
@@ -13,8 +13,8 @@ const MyBookings = () => {
   const currency = import.meta.env.VITE_CURRENCY && import.meta.env.VITE_CURRENCY !== "$"
     ? import.meta.env.VITE_CURRENCY
     : "₹"
-  const { axios, user, image_base_url } = useAppContext()
-  const { getToken } = useAuth()
+  const { axios, image_base_url } = useAppContext()
+  const { user } = useAuth()
 
   const [booking, setBookings] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -23,13 +23,7 @@ const MyBookings = () => {
 
   const getMyBookings = async () => {
     try {
-      const token = await getToken()
-
-      const { data } = await axios.get('/api/user/bookings', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
+      const { data } = await axios.get('/api/user/bookings')
 
       if (data.success) {
         const normalizedBookings = (data.bookings || []).map((item) => ({
@@ -49,12 +43,7 @@ const MyBookings = () => {
 
   const handlePayNow = async (bookingId, currentLink) => {
     try {
-      const token = await getToken()
-      const { data } = await axios.post('/api/booking/refresh', { bookingId }, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
+      const { data } = await axios.post('/api/booking/refresh', { bookingId })
 
       if (data.success && data.url) {
         window.location.href = data.url
@@ -87,13 +76,8 @@ const MyBookings = () => {
     if (!sessionId) return
 
     try {
-      const token = await getToken()
-
       const { data } = await axios.get('/api/user/bookings/confirm', {
-        params: { session_id: sessionId },
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        params: { session_id: sessionId }
       })
 
       if (data.success) {

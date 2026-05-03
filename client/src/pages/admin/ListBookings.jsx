@@ -11,7 +11,7 @@ import { useAppContext } from '../../context/AppContext';
 
 const ListBookings = () => {
 
-  const {axios ,getToken ,user}=useAppContext();
+  const {axios ,user}=useAppContext();
 
   const [bookings,setBookings]=useState([]);
   const [isLoading,setIsLoading]=useState(true);
@@ -22,7 +22,6 @@ const ListBookings = () => {
 const getAllBookings=async()=>{
   try{
     const {data}=await axios.get(`/api/admin/all-bookings?page=${page}&limit=${limit}`,{
-        headers :{ Authorization:`Bearer ${await getToken()}`}
        })
        console.log("Bookings data:", data.bookings)
        setBookings(data.bookings || [])

@@ -12,7 +12,7 @@ const ListShows = () => {
       ? import.meta.env.VITE_CURRENCY
       : "₹"
 
-  const {axios ,getToken ,user}=useAppContext()
+  const {axios ,user}=useAppContext()
 
     const [shows,setShows]=useState([]);
     const[loading,setLoading]=useState(true);
@@ -20,7 +20,6 @@ const ListShows = () => {
     const getAllShows=async ()=>{
       try{
        const {data}=await axios.get("/api/admin/all-shows",{
-        headers :{ Authorization:`Bearer ${await getToken()}`}
        })
        setShows(data.shows)
        setLoading(false);
