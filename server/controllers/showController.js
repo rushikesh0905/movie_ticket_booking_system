@@ -24,18 +24,42 @@ const retryRequest = async (fn, retries = 3, delay = 1000) => {
 
 export const getNowPlayingMovies = async (req, res) => {
     try {
+
+        console.log("========== TMDB DEBUG ==========");
+        console.log("TMDB TOKEN EXISTS:", !!process.env.TMDB_ACCESS_TOKEN);
+
         const { data } = await retryRequest(
-            () => tmdbAxios.get("https://api.themoviedb.org/3/movie/now_playing")
+            () =>
+                tmdbAxios.get(
+                    "https://api.themoviedb.org/3/movie/now_playing"
+                )
         );
 
         const movies = data.results;
-        res.json({ success: true, movies });
+
+        res.json({
+            success: true,
+            movies
+        });
 
     } catch (error) {
-        console.error("getNowPlayingMovies error:", error.message);
-        res.status(502).json({ 
-            success: false, 
-            message: "TMDB API temporarily unavailable. Please try again in a moment." 
+
+        console.error("========== TMDB ERROR ==========");
+        console.error("Message:", error.message);
+
+        if (error.response) {
+            console.error("Status:", error.response.status);
+            console.error("Data:", error.response.data);
+        }
+
+        console.error("================================");
+
+        res.status(502).json({
+            success: false,
+            message:
+                error.response?.data?.status_message ||
+                error.message ||
+                "TMDB API temporarily unavailable"
         });
     }
 };
