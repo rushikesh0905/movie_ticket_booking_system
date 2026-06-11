@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import Booking from "../models/Booking.js";
+import User from "../models/user.js";
 import sendEmail from "../configs/nodeMailer.js";
-import { clerkClient } from "@clerk/express";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -13,6 +13,7 @@ export const stripeWebhooks = async (req, res) => {
   const sig = req.headers["stripe-signature"];
 
   let event;
+
   try {
     event = stripe.webhooks.constructEvent(
       req.body,
@@ -40,69 +41,93 @@ export const stripeWebhooks = async (req, res) => {
 
     const booking = await Booking.findById(bookingId).populate({
       path: "show",
-      populate: { path: "movie", model: "Movie" },
+      populate: {
+        path: "movie",
+        model: "Movie",
+      },
     });
 
     if (!booking) {
-      console.error("❌ Booking not found for id", bookingId);
+      console.error("❌ Booking not found:", bookingId);
       return res.json({ received: true });
     }
 
     if (booking.isPaid) {
-      console.log("⚠️ Booking already marked paid", bookingId);
+      console.log("⚠️ Booking already marked paid:", bookingId);
       return res.json({ received: true });
     }
 
     booking.isPaid = true;
     booking.paymentLink = "";
+
     await booking.save();
 
     let userEmail;
     let userName = "User";
 
     try {
-      const clerkUser = await clerkClient.users.getUser(booking.user);
-      userEmail = clerkUser.emailAddresses[0]?.emailAddress;
-      userName = clerkUser.firstName || clerkUser.lastName || "User";
-    } catch (clerkErr) {
-      console.error("❌ Clerk user fetch failed for booking.user", booking.user, clerkErr.message);
+      const user = await User.findById(booking.user);
+
+      if (user) {
+        userEmail = user.email;
+        userName = user.name;
+      }
+    } catch (userErr) {
+      console.error("❌ User fetch failed:", userErr.message);
     }
 
     if (!isValidEmail(userEmail)) {
-      console.error("❌ Invalid user email for notification", userEmail);
+      console.error("❌ Invalid email:", userEmail);
       return res.json({ received: true });
     }
 
     try {
       await sendEmail({
         to: userEmail,
-        subject: `Payment confirmation: "${booking.show.movie.title}" booked!`,
+        subject: `Payment Confirmation - ${booking.show.movie.title}`,
         body: `
-  <div style="font-family: Arial, sans-serif;">
-    <h2>Hi ${userName},</h2>
+          <div style="font-family: Arial, sans-serif;">
+            <h2>Hello ${userName},</h2>
 
-    <p>Your booking for <strong>${booking.show.movie.title}</strong> is confirmed 🎉</p>
+            <p>Your booking has been confirmed 🎉</p>
 
-    <p>
-      <strong>Date:</strong> ${new Date(booking.show.showDateTime).toLocaleDateString("en-IN")}<br/>
-      <strong>Time:</strong> ${new Date(booking.show.showDateTime).toLocaleTimeString("en-IN")}
-    </p>
+            <h3>${booking.show.movie.title}</h3>
 
-    <p>Seats: ${booking.seats.join(", ")}</p>
+            <p>
+              <strong>Date:</strong>
+              ${new Date(
+                booking.show.showDateTime
+              ).toLocaleDateString("en-IN")}
+            </p>
 
-    <p>Enjoy your movie 🍿</p>
-  </div>
-  `,
+            <p>
+              <strong>Time:</strong>
+              ${new Date(
+                booking.show.showDateTime
+              ).toLocaleTimeString("en-IN")}
+            </p>
+
+            <p>
+              <strong>Seats:</strong>
+              ${booking.seats.join(", ")}
+            </p>
+
+            <p>
+              Enjoy your movie 🍿
+            </p>
+          </div>
+        `,
       });
-      console.log("📧 Email sent to", userEmail);
+
+      console.log("📧 Confirmation email sent:", userEmail);
     } catch (emailErr) {
-      console.error("❌ Email send failed:", emailErr);
+      console.error("❌ Email send failed:", emailErr.message);
     }
 
     return res.json({ received: true });
+
   } catch (error) {
     console.error("❌ Webhook processing error:", error);
     return res.status(500).send("Webhook failed");
   }
 };
-
