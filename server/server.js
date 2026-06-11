@@ -17,15 +17,6 @@ const port = process.env.PORT || 3000;
 // Database Connection
 await connectDB();
 
-// Allowed Origins
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.CLIENT_URL,
-  'http://localhost:5173',
-].filter(Boolean);
-
-console.log("Allowed Origins:", allowedOrigins);
-
 // Stripe Webhook (Must Be Before express.json)
 app.post(
   '/api/stripe/webhook',
@@ -33,29 +24,11 @@ app.post(
   stripeWebhooks
 );
 
-// CORS
-app.use(
-  cors({
-    origin: function (origin, callback) {
-
-      // Allow requests with no origin
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log("Blocked Origin:", origin);
-
-      return callback(
-        new Error(`CORS blocked for origin: ${origin}`)
-      );
-    },
-    credentials: true,
-  })
-);
+// CORS FIX
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
 
 // JSON Parser
 app.use(express.json());
