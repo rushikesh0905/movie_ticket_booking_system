@@ -1,46 +1,35 @@
 import mongoose from "mongoose";
 
-const buildConnectionString = (mongoUrl) => {
-    const mongoUri = new URL(mongoUrl);
+const connectDB = async () => {
+    try {
 
-    if (!mongoUri.pathname || mongoUri.pathname === '/') {
-        mongoUri.pathname = '/quickshow';
-    }
+        mongoose.connection.on("connected", () => {
+            console.log("✅ Database Connected");
+        });
 
-    return mongoUri.toString();
-};
-
-const connectDB=async()=>{
-    try{
-        mongoose.connection.on('connected',()=>console.log('Database connected'));
-        mongoose.connection.on('error',(error)=>console.error('MongoDB connection error:', error.message));
+        mongoose.connection.on("error", (error) => {
+            console.error("❌ MongoDB Error:", error.message);
+        });
 
         const mongoUrl = process.env.MONGODB_URL?.trim();
+
         if (!mongoUrl) {
-            throw new Error('MONGODB_URL is not set');
+            throw new Error("MONGODB_URL is not set in environment variables");
         }
 
-        const fallbackUrl = process.env.MONGODB_LOCAL_URL?.trim() || 'mongodb://127.0.0.1:27017/quickshow';
+        await mongoose.connect(mongoUrl, {
+            dbName: "quickshow",
+        });
 
-        try {
-            await mongoose.connect(buildConnectionString(mongoUrl));
-            return;
-        } catch (primaryError) {
-            const isSrvFailure = /querySrv|ENOTFOUND|ECONNREFUSED/i.test(primaryError.message);
+        console.log("🚀 MongoDB Atlas Connected Successfully");
 
-            if (!isSrvFailure) {
-                throw primaryError;
-            }
+    } catch (error) {
 
-            console.warn('Primary MongoDB connection failed, trying local fallback:', primaryError.message);
-            await mongoose.connect(buildConnectionString(fallbackUrl));
-        }
+        console.error("❌ Database Connection Failed:");
+        console.error(error.message);
 
-    } catch (error){
-        console.log('Database connection failed:', error.message);
-        throw error;
-
+        process.exit(1);
     }
-}
+};
 
 export default connectDB;
